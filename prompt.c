@@ -27,14 +27,16 @@ struct colorscheme {
     char *text_color;	char *username_color;	char *hostname_color;
     char *cwd_color;	char *time_color;	char *hist_count_color;
     char *git_color;	char *git_icon_color;	char *ubuntu_icon_color;
+    char *jobs_color;
 };
 enum Colorschemes {
     KANAGAWA,
 };
 const Colorscheme colors[] = {
-	[KANAGAWA] = {	.text_color = RGB(220, 213, 172),	.username_color	= RGB(220, 165, 97),	.hostname_color		= RGB(210,	 126, 153),
-			.cwd_color	= RGB(135, 169, 135),	.time_color		= RGB(149, 127, 184),	.hist_count_color	= RGB(89,	 123, 117),
-			.git_color	= RGB(255, 160,	102),
+	[KANAGAWA] = {
+        .text_color = RGB(220, 213, 172),	.username_color	= RGB(220, 165, 97),	.hostname_color 	= RGB(210,	 126, 153),
+		.cwd_color	= RGB(135, 169, 135),	.time_color		= RGB(149, 127, 184),	.hist_count_color	= RGB(89,	 123, 117),
+		.git_color	= RGB(255, 160,	102),   .jobs_color     = RGB(147, 138, 169)
 	},
 };
 const Colorscheme *colorscheme = &colors[KANAGAWA];
@@ -149,13 +151,29 @@ void print_hostname(char *hostname)
 void print_distro(char *distro)
 {
     if(strstr(distro, "Ubuntu"))
-        distro = UBUNTU_ICON_COLOR"";
-    printf("%s ", distro);
+        distro = UBUNTU_ICON_COLOR" ";
+    printf("%s", distro);
+}
+
+void print_jobs(char *running_jobs_str, char *sleeping_jobs_str)
+{
+    int running_jobs_count, sleeping_jobs_count;
+    running_jobs_count = atoi(running_jobs_str);
+    sleeping_jobs_count = atoi(sleeping_jobs_str);
+    printf("%s", colorscheme->jobs_color);
+    if (running_jobs_count > 0)
+        printf("%d 󰓦", running_jobs_count);
+    if (running_jobs_count > 0 && sleeping_jobs_count > 0)
+        printf(" / ");
+    if (sleeping_jobs_count > 0)
+        printf("%d  ", sleeping_jobs_count);
+    if (running_jobs_count > 0 || sleeping_jobs_count > 0)
+        printf(" ");
 }
 
 void print_git_branch(char *git_branch)
 {
-    printf(" %sat %s%s%s%s",
+    printf(" %sat %s%s%s%s ",
            PREPOSITION_COLOR,
 		   GIT_ICON_COLOR, "󰊢",
 		   colorscheme->git_color, git_branch);
@@ -171,7 +189,7 @@ void print_git_stat(char *git_stat)
     }
     if(buf[0] == 0)
         return;
-    printf(" %s~%d %s+%d %s-%d",
+    printf("%s~%d %s+%d %s-%d",
            COLOR_8(3), buf[0],
            COLOR_8(2), buf[1],
            COLOR_8(1), buf[2]);
@@ -195,7 +213,14 @@ int main(int argc, char **argv)
         }
         if (arg[1] == 'h')
             usage(0);
-        if (++i >= argc) {
+        if (arg[1] == 'j') {
+            i = i+2;
+            if(i >= argc) {
+                fprintf(stderr, "Missing two argument for option -j\n");
+                usage(1);
+            }
+        }
+        else if (++i >= argc) {
             fprintf(stderr, "Missing argument for option %s\n", arg);
             usage(1);
         }
@@ -214,6 +239,9 @@ int main(int argc, char **argv)
             if(argv[i][0]) {
                 print_git_branch(argv[i]);
             }
+            break;
+        case 'j':
+            print_jobs(argv[i-1], argv[i]);
             break;
         case 'n':
             print_hist_count(argv[i]);
