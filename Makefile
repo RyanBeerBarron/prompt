@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS = -std=c99 -g -pedantic -Wall
+CFLAGS = -std=c99 -g -pedantic -Wall -Wextra
 CPPFLAGS = -DDEBUG -D_XOPEN_SOURCE=700L
 
 

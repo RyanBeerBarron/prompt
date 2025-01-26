@@ -1,11 +1,5 @@
 /*
-*		TODO: Need to have multiple patterns
-*		Like a simple pattern with foreground and background colors
-*		More emojis/nerd font icons ( success / error / signals )
-*		A pattern with text (user in dir at branch.. blablabla.. xxxth command)
-*		24-bit colors aka true colors
-*		Show diff stat of git repo if within one else show for dotfiles repo
-*		To do with git-cli? or libgit?
+*		TODO: Need to have multiple patterns / multiple colorschemes
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +12,7 @@
 #define COLOR_256(c)        "\x01\x1b[38;5;" #c "m\x02"
 
 #define BOLD_MODE "\x01\x1b[1m\x02"
+#define RESET_BOLD_MODE "\x01\x1b[22m\x02"
 #define GIT_ICON_COLOR			RGB(241, 80, 47)
 #define UBUNTU_ICON_COLOR		RGB(233, 84, 32)
 #define PREPOSITION_COLOR       COLOR_256(240)
@@ -55,9 +50,13 @@ options:\n\
   -w <current working directory>\n\
 ";
 
+char prompt[4096];
+char *start = prompt;
+char *end = prompt + sizeof prompt;
+
 void usage(int exit_code)
 {
-    printf("%s", usage_string);
+    fputs(usage_string, stdout);
     exit(exit_code);
 }
 
@@ -67,7 +66,7 @@ void print_return_code(char* str)
     char *signame;
     int sig;
     // return code corresponds to a signals
-    if(rc > 128) {
+    if (rc > 128) {
         sig = rc - 128;
         switch(sig) {
         case SIGINT:
@@ -84,7 +83,7 @@ void print_return_code(char* str)
             break;
         }
 
-        printf(" %s", signame);
+        start += snprintf(start, end - start, " %s", signame);
         return;
     }
     switch(rc) {
@@ -108,13 +107,13 @@ void print_return_code(char* str)
         //colorscheme = DEFAULT_ERROR;
         break;
     }
-    printf(" %s", str);
+    start += snprintf(start, end - start, " %s", str);
     return;
 }
 
 void print_hist_count(char *hist_count)
 {
-    printf("%s %s#", colorscheme->hist_count_color, hist_count);
+    start += snprintf(start, end - start, "%s %s#", colorscheme->hist_count_color, hist_count);
 }
 
 void print_cwd(char *cwd)
@@ -127,23 +126,26 @@ void print_cwd(char *cwd)
         break;
     case '/':
         cwd = "root";
+        icon = "";
+        break;
     default:
         icon = "";
         break;
     }
-    printf("%s in %s%s %s",
+    start += snprintf(start, end - start,
+           "%s in %s%s %s",
            PREPOSITION_COLOR,
            colorscheme->cwd_color, icon, cwd);
 }
 
 void print_user(char *user)
 {
-    printf("%s%s", colorscheme->username_color, user);
+    start += snprintf(start, end - start, "%s%s", colorscheme->username_color, user);
 }
 
 void print_hostname(char *hostname)
 {
-    printf("%s on %s%s",
+    start += snprintf(start, end - start, "%s on %s%s",
            PREPOSITION_COLOR,
            colorscheme->hostname_color, hostname);
 }
@@ -152,73 +154,89 @@ void print_distro(char *distro)
 {
     if(strstr(distro, "Ubuntu"))
         distro = UBUNTU_ICON_COLOR" ";
-    printf("%s", distro);
+    start += snprintf(start, end - start, "%s", distro);
 }
 
-void print_jobs(char *running_jobs_str, char *sleeping_jobs_str)
+void print_jobs(char *background_str, char *stopped_str)
 {
-    int running_jobs_count, sleeping_jobs_count;
-    running_jobs_count = atoi(running_jobs_str);
-    sleeping_jobs_count = atoi(sleeping_jobs_str);
-    printf("%s", colorscheme->jobs_color);
-    if (running_jobs_count > 0)
-        printf("%d 󰓦", running_jobs_count);
-    if (running_jobs_count > 0 && sleeping_jobs_count > 0)
-        printf(" / ");
-    if (sleeping_jobs_count > 0)
-        printf("%d  ", sleeping_jobs_count);
-    if (running_jobs_count > 0 || sleeping_jobs_count > 0)
-        printf(" ");
+    int background, stopped;
+    background = atoi(background_str);
+    stopped = atoi(stopped_str);
+    fputs(colorscheme->jobs_color, stdout);
+    if (background > 0 && stopped > 0)
+        start += snprintf(start, end - start, " %d 󰓦 / %d  ", background, stopped);
+    else if (background > 0)
+        start += snprintf(start, end - start, " %d 󰓦", background);
+    else if (stopped > 0)
+        start += snprintf(start, end - start, " %d  ", stopped);
 }
 
 void print_git_branch(char *git_branch)
 {
-    printf(" %sat %s%s%s%s ",
+    start += snprintf(start, end - start, " %sat %s%s%s%s",
            PREPOSITION_COLOR,
 		   GIT_ICON_COLOR, "󰊢",
 		   colorscheme->git_color, git_branch);
 }
 
-void print_git_stat(char *git_stat)
+void print_git_stat(char *modified_files, char *added_lines, char *removed_lines)
 {
-    char *endptr;
-    int buf[3];
+    int ints[3];
+    ints[0] = atoi(modified_files);
+    ints[1] = atoi(added_lines);
+    ints[2] = atoi(removed_lines);
+    struct {
+        char *color;
+        char symbol;
+    } print_spec[3] = {
+        { .color = COLOR_8(3), .symbol = '~'},
+        { .color = COLOR_8(2), .symbol = '+'},
+        { .color = COLOR_8(1), .symbol = '-'}
+    };
     for (int i=0; i<3; i++) {
-        buf[i] = (int) strtol(git_stat, &endptr, 10);
-        git_stat = endptr;
+        if (ints[i]) start += snprintf(start, end - start, " %s%c%d", print_spec[i].color, print_spec[i].symbol, ints[i]);
     }
-    if(buf[0] == 0)
-        return;
-    printf("%s~%d %s+%d %s-%d",
-           COLOR_8(3), buf[0],
-           COLOR_8(2), buf[1],
-           COLOR_8(1), buf[2]);
 }
 
 void print_time_taken(char *time_taken)
 {
-    printf("%s took %s", colorscheme->time_color, time_taken);
+    start += snprintf(start, end - start, " %stook %s", colorscheme->time_color, time_taken);
 }
 
 int main(int argc, char **argv)
 {
     // Could add a termcode to reset cursor to leftmost columns
     // In case a previous command got interrupted
-    printf("      %s%s┏━ ", BOLD_MODE, colorscheme->text_color);
+    start += snprintf(start, end - start, "      %s%s┏━ ", BOLD_MODE, colorscheme->text_color);
     for(int i=1; i<argc; i++) {
         char *arg = argv[i];
         if (arg[0] != '-') {
             fprintf(stderr, "Incorrect argument, did not start with dash: %s\n", arg);
             usage(1);
         }
-        if (arg[1] == 'h')
+        else if (arg[1] == 'h')
             usage(0);
-        if (arg[1] == 'j') {
-            i = i+2;
-            if(i >= argc) {
-                fprintf(stderr, "Missing two argument for option -j\n");
+        else if (arg[1] == 'j') {
+            if (i+2 >= argc) {
+                fprintf(stderr, "Missing arguments for option -j\n");
                 usage(1);
             }
+            if (argv[i+1][0] == '-' || argv[i+2][0] == '-') {
+                fprintf(stderr, "Missing arguments for option -j\n");
+                usage(1);
+            }
+            i += 2;
+        }
+        else if (arg[1] == 's') {
+            if (i+3 >= argc) {
+                fprintf(stderr, "Missing arguments for option -s\n");
+                usage(1);
+            }
+            if (argv[i+1][0] == '-' || argv[i+2][0] == '-' || argv[i+3][0] == '-') {
+                fprintf(stderr, "Missing arguments for option -s\n");
+                usage(1);
+            }
+            i += 3;
         }
         else if (++i >= argc) {
             fprintf(stderr, "Missing argument for option %s\n", arg);
@@ -247,7 +265,7 @@ int main(int argc, char **argv)
             print_hist_count(argv[i]);
             break;
         case 's':
-            print_git_stat(argv[i]);
+            print_git_stat(argv[i-2], argv[i-1], argv[i]);
             break;
         case 't':
             print_time_taken(argv[i]);
@@ -266,5 +284,6 @@ int main(int argc, char **argv)
             usage(1);
         }
     }
-    printf("\n%s┗━ $ ", colorscheme->text_color);
+    start += snprintf(start, end - start, "\n%s┗━ $ %s", colorscheme->text_color, RESET_BOLD_MODE);
+    fputs(prompt, stdout);
 }
