@@ -15,6 +15,7 @@
 #define RESET_BOLD_MODE "\x01\x1b[22m\x02"
 #define GIT_ICON_COLOR			RGB(241, 80, 47)
 #define UBUNTU_ICON_COLOR		RGB(233, 84, 32)
+#define DEBIAN_ICON_COLOR		RGB(208, 0, 86)
 #define PREPOSITION_COLOR       COLOR_256(240)
 
 typedef struct colorscheme Colorscheme;
@@ -154,6 +155,8 @@ void print_distro(char *distro)
 {
     if(strstr(distro, "Ubuntu"))
         distro = UBUNTU_ICON_COLOR" ";
+    if(strstr(distro, "Debian"))
+        distro = DEBIAN_ICON_COLOR" ";
     start += snprintf(start, end - start, "%s", distro);
 }
 
