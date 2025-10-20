@@ -26,21 +26,28 @@ struct colorscheme {
     char *jobs_color;
 };
 enum Colorschemes {
-    KANAGAWA,
+    KANAGAWA_WAVE,
+    KANAGAWA_LOTUS
 };
 const Colorscheme colors[] = {
-	[KANAGAWA] = {
-        .text_color = RGB(220, 213, 172),	.username_color	= RGB(220, 165, 97),	.hostname_color 	= RGB(210,	 126, 153),
+	[KANAGAWA_WAVE] = {
+        .text_color = COLOR_8(7),	        .username_color	= RGB(220, 165, 97),	.hostname_color 	= RGB(210,	 126, 153),
 		.cwd_color	= RGB(135, 169, 135),	.time_color		= RGB(149, 127, 184),	.hist_count_color	= RGB(89,	 123, 117),
 		.git_color	= RGB(255, 160,	102),   .jobs_color     = RGB(147, 138, 169)
 	},
+    [KANAGAWA_LOTUS] = {
+        .text_color = COLOR_8(7),	        .username_color	= RGB(220, 165, 97),	.hostname_color 	= RGB(210,	 126, 153),
+		.cwd_color	= RGB(135, 169, 135),	.time_color		= RGB(149, 127, 184),	.hist_count_color	= RGB(89,	 123, 117),
+		.git_color	= RGB(255, 160,	102),   .jobs_color     = RGB(147, 138, 169)
+    }
 };
-const Colorscheme *colorscheme = &colors[KANAGAWA];
+const Colorscheme *colorscheme;
 
 const char *usage_string = "\
 usage: prints bash prompt with given information in order according to baked in pattern/colorscheme\n\
-$ prompt [-h] [option [arg]]\n\
+$ prompt <colorscheme> [-h] [option [arg]]\n\
 options:\n\
+  colorscheme:  One of \"kanagawa-wave\" or \"kanagawa-lotus\"\
   -c <return code> print emoji for common exit code OR signal name if it corresponds to a signal\n\
   -d <distro> print icon of linux distro\n\
   -g <git_branch>\n\
@@ -156,7 +163,7 @@ void print_distro(char *distro)
     if(strstr(distro, "Ubuntu"))
         distro = UBUNTU_ICON_COLOR" ";
     if(strstr(distro, "Debian"))
-        distro = DEBIAN_ICON_COLOR" ";
+        distro = DEBIAN_ICON_COLOR" ";
     start += snprintf(start, end - start, "%s", distro);
 }
 
@@ -210,8 +217,21 @@ int main(int argc, char **argv)
 {
     // Could add a termcode to reset cursor to leftmost columns
     // In case a previous command got interrupted
+    if (argc < 2) {
+        fprintf(stderr, "colorscheme argument is required\n");
+        usage(1);
+    }
+    char *colorscheme_str = argv[1];
+    if (!strcmp(colorscheme_str, "kanagawa-wave")) {
+        colorscheme = &colors[KANAGAWA_WAVE];
+    } else if (!strcmp(colorscheme_str, "kanagawa-lotus")) {
+        colorscheme = &colors[KANAGAWA_LOTUS];
+    } else {
+        fprintf(stderr, "Invalid colorscheme %s, must be one of \"kanagawa-wave\" or \"kanagawa-lotus\"\n", colorscheme_str);
+        usage(1);
+    }
     start += snprintf(start, end - start, "      %s%s┏━ ", BOLD_MODE, colorscheme->text_color);
-    for(int i=1; i<argc; i++) {
+    for(int i=2; i<argc; i++) {
         char *arg = argv[i];
         if (arg[0] != '-') {
             fprintf(stderr, "Incorrect argument, did not start with dash: %s\n", arg);
